@@ -40,6 +40,7 @@ Thumbs.db
 
 # ── Firebase local deploy cache ──────────────────────────────────────────────
 dashboard/.firebase/
+dashboard/firebase-config.js
 
 # ── Google Cloud credentials, if ever generated locally ─────────────────────
 *.json

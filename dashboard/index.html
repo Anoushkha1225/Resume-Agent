@@ -182,11 +182,30 @@
             gap: 8px;
         }
 
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .checkpoint-card {
             background: var(--surface-container);
             border: 1px solid var(--border);
             border-radius: 6px;
             padding: 16px;
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .checkpoint-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-hover);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .checkpoint-card .meta {
@@ -206,6 +225,105 @@
             font-size: 14px;
             color: var(--text-secondary);
             line-height: 20px;
+        }
+
+        .category-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .filter-btn {
+            background: var(--surface-container);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .filter-btn:hover {
+            border-color: var(--border-hover);
+            background: var(--surface-container-high);
+        }
+
+        .filter-btn .count {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+
+        /* Active states for each button */
+        .filter-btn.active[data-category="all"] {
+            background: rgba(162, 201, 255, 0.12);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .filter-btn.active[data-category="all"] .count {
+            background: rgba(162, 201, 255, 0.2);
+            color: var(--primary);
+        }
+        
+        .filter-btn.active[data-category="debugging"] {
+            background: rgba(255, 180, 171, 0.12);
+            border-color: var(--debugging);
+            color: var(--debugging);
+        }
+        .filter-btn.active[data-category="debugging"] .count {
+            background: rgba(255, 180, 171, 0.2);
+            color: var(--debugging);
+        }
+
+        .filter-btn.active[data-category="new-feature"] {
+            background: rgba(103, 223, 112, 0.12);
+            border-color: var(--new-feature);
+            color: var(--new-feature);
+        }
+        .filter-btn.active[data-category="new-feature"] .count {
+            background: rgba(103, 223, 112, 0.2);
+            color: var(--new-feature);
+        }
+
+        .filter-btn.active[data-category="review-response"] {
+            background: rgba(88, 166, 255, 0.12);
+            border-color: var(--review-response);
+            color: var(--review-response);
+        }
+        .filter-btn.active[data-category="review-response"] .count {
+            background: rgba(88, 166, 255, 0.2);
+            color: var(--review-response);
+        }
+
+        .filter-btn.active[data-category="refactor"] {
+            background: rgba(255, 186, 66, 0.12);
+            border-color: var(--refactor);
+            color: var(--refactor);
+        }
+        .filter-btn.active[data-category="refactor"] .count {
+            background: rgba(255, 186, 66, 0.2);
+            color: var(--refactor);
+        }
+
+        .filter-btn.active[data-category="unclear"] {
+            background: rgba(139, 145, 157, 0.12);
+            border-color: var(--unclear);
+            color: var(--unclear);
+        }
+        .filter-btn.active[data-category="unclear"] .count {
+            background: rgba(139, 145, 157, 0.2);
+            color: var(--unclear);
         }
 
         .empty-state {
@@ -284,7 +402,15 @@
         </section>
 
         <section>
-            <h2>Recent Checkpoints</h2>
+            <h2>Checkpoint Explorer</h2>
+            <div class="category-filters" id="category-filters" style="display: none;">
+                <button class="filter-btn active" data-category="all">All <span class="count" id="count-all">0</span></button>
+                <button class="filter-btn" data-category="debugging">Debugging 🐛 <span class="count" id="count-debugging">0</span></button>
+                <button class="filter-btn" data-category="new-feature">New Feature 🛠️ <span class="count" id="count-new-feature">0</span></button>
+                <button class="filter-btn" data-category="review-response">Review Response 📋 <span class="count" id="count-review-response">0</span></button>
+                <button class="filter-btn" data-category="refactor">Refactor 🔧 <span class="count" id="count-refactor">0</span></button>
+                <button class="filter-btn" data-category="unclear">Unclear ❓ <span class="count" id="count-unclear">0</span></button>
+            </div>
             <div class="checkpoint-list" id="checkpoint-list">
                 <div class="empty-state">Loading…</div>
             </div>
@@ -298,16 +424,10 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-analytics.js";
         import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
-        // ── Fill these in from Firebase Console → Project Settings → Your apps ──
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrXCoCvhiO4mUihJrLg3O_YYlbqQFI5_U",
-            authDomain: "resume-agent-44270.firebaseapp.com",
-            projectId: "resume-agent-44270",
-            storageBucket: "resume-agent-44270.firebasestorage.app",
-            messagingSenderId: "702386355237",
-            appId: "1:702386355237:web:992c140f80fca02160d3cc",
-            measurementId: "G-N3SF4LPETQ"
-        };
+        
+        // Import project configuration (not checked into source control)
+        import { firebaseConfig } from "./firebase-config.js";
+
         const app = initializeApp(firebaseConfig);
         const analytics = getAnalytics(app);
 
@@ -332,30 +452,89 @@
             return `<span class="badge ${cls}">${taskType}</span>`;
         }
 
+        let allCheckpoints = [];
+        let activeCategory = "all";
+
         async function main() {
             const statusEl = document.getElementById("connection-status");
             try {
                 const app = initializeApp(firebaseConfig);
                 const db = getFirestore(app);
 
-                // ── Recent checkpoints ──
-                const cpQuery = query(collection(db, "checkpoints"), orderBy("timestamp", "desc"), limit(10));
+                // ── All checkpoints ──
+                const cpQuery = query(collection(db, "checkpoints"), orderBy("timestamp", "desc"));
                 const cpSnapshot = await getDocs(cpQuery);
-                const checkpoints = cpSnapshot.docs.map(d => d.data());
+                allCheckpoints = cpSnapshot.docs.map(d => d.data());
 
                 // ── Interruption stats ──
                 const statsSnapshot = await getDocs(collection(db, "interruption_stats"));
                 const stats = statsSnapshot.docs.map(d => d.data());
 
-                statusEl.innerHTML = `<span class="status-dot"></span>Connected — ${checkpoints.length} checkpoints loaded`;
+                statusEl.innerHTML = `<span class="status-dot"></span>Connected — ${allCheckpoints.length} checkpoints loaded`;
 
-                renderStatsOverview(checkpoints, stats);
+                // Set up interactive filtering
+                setupFilters();
+                updateFilterCounts(allCheckpoints);
+
+                renderStatsOverview(allCheckpoints, stats);
                 renderStatsTable(stats);
-                renderCheckpointList(checkpoints);
+                renderFilteredCheckpoints();
             } catch (err) {
                 statusEl.innerHTML = `<span class="status-dot" style="background:#ffb4ab"></span>Connection failed: ${err.message}`;
                 console.error(err);
             }
+        }
+
+        function updateFilterCounts(checkpoints) {
+            const counts = {
+                all: checkpoints.length,
+                debugging: 0,
+                "new-feature": 0,
+                "review-response": 0,
+                refactor: 0,
+                unclear: 0
+            };
+            
+            checkpoints.forEach(cp => {
+                const type = cp.task_type || "unclear";
+                if (counts[type] !== undefined) {
+                    counts[type]++;
+                } else {
+                    counts["unclear"]++;
+                }
+            });
+
+            document.getElementById("count-all").textContent = counts.all;
+            document.getElementById("count-debugging").textContent = counts.debugging;
+            document.getElementById("count-new-feature").textContent = counts["new-feature"];
+            document.getElementById("count-review-response").textContent = counts["review-response"];
+            document.getElementById("count-refactor").textContent = counts.refactor;
+            document.getElementById("count-unclear").textContent = counts.unclear;
+        }
+
+        function setupFilters() {
+            const filterContainer = document.getElementById("category-filters");
+            if (!filterContainer) return;
+            
+            filterContainer.style.display = "flex";
+            
+            const buttons = filterContainer.querySelectorAll(".filter-btn");
+            buttons.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    buttons.forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    activeCategory = btn.getAttribute("data-category");
+                    renderFilteredCheckpoints();
+                });
+            });
+        }
+
+        function renderFilteredCheckpoints() {
+            const filtered = activeCategory === "all" 
+                ? allCheckpoints 
+                : allCheckpoints.filter(cp => (cp.task_type || "unclear") === activeCategory);
+            
+            renderCheckpointList(filtered);
         }
 
         function renderStatsOverview(checkpoints, stats) {
