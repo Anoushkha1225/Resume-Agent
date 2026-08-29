@@ -67,13 +67,13 @@ The agent is event-driven and autonomous — not a request/response chat loop. T
 ## Installation
 
 ```bash
-pip install git+https://github.com/YOUR_USERNAME/resume-agent.git
+pip install git+https://github.com/Anoushkha1225/resume-agent.git
 ```
 
 Or, for local development:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/resume-agent.git
+git clone https://github.com/Anoushkha1225/resume-agent.git
 cd resume-agent
 pip install -e .
 ```
