@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resume-agent"
+version = "0.1.0"
+description = "An autonomous agent that reconstructs why you were doing what you were doing after an interruption, and learns your personal interruption patterns over time."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Anoushkha" }
+]
+dependencies = [
+    "google-genai>=1.0.0",
+    "google-adk>=0.4.0",
+    "gitpython>=3.1.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+firestore = ["google-cloud-firestore>=2.0.0"]
+analytics = ["snowflake-connector-python>=3.0.0"]
+
+[project.scripts]
+resume-agent = "cli:main"
+
+[tool.setuptools]
+py-modules = [
+    "cli",
+    "main",
+    "checkpoint_agent",
+    "clarify",
+    "config",
+    "pattern_store",
+    "watcher",
+]

@@ -1,0 +1,48 @@
+# ── Secrets — never commit these ─────────────────────────────────────────────
+.env
+*.env
+.env.local
+
+# ── Snowflake analytics (Phase 2 / resume project — not part of hackathon submission) ──
+analytics/
+
+# ── Local data / generated at runtime ────────────────────────────────────────
+data/
+*.db
+*.db-wal
+*.db-shm
+fake_terminal.log
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── IDE / editor ───────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── OS junk ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Firebase local deploy cache ──────────────────────────────────────────────
+dashboard/.firebase/
+
+# ── Google Cloud credentials, if ever generated locally ─────────────────────
+*.json
+!package.json
+!dashboard/firebase.json
+gcloud-credentials*
