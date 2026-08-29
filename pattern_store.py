@@ -355,6 +355,12 @@ class FirestoreBackend(StorageBackend):
     ) -> str:
         checkpoint_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
+
+        # Capture username and project name to segment checkpoints in shared database
+        import getpass
+        username = getpass.getuser()
+        project_name = cfg.repo_path.name
+
         self._checkpoints.document(checkpoint_id).set(
             {
                 "id": checkpoint_id,
@@ -366,6 +372,8 @@ class FirestoreBackend(StorageBackend):
                 "raw_diff": raw_diff,
                 "elapsed_seconds": elapsed_seconds,
                 "feedback_corrected_type": None,
+                "username": username,
+                "project_name": project_name,
             }
         )
         return checkpoint_id

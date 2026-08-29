@@ -326,6 +326,49 @@
             color: var(--unclear);
         }
 
+        .user-project-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+            background: var(--surface-container);
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 24px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+        }
+
+        .filter-group label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-right: 8px;
+            letter-spacing: 0.05em;
+        }
+
+        .filter-group select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        .filter-group select:hover, .filter-group select:focus {
+            border-color: var(--border-hover);
+        }
+
         .empty-state {
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
@@ -361,6 +404,17 @@
 
         <div class="status-line" id="connection-status">
             <span class="status-dot"></span>Connecting to Firestore…
+        </div>
+
+        <div class="user-project-filters" id="user-project-filters" style="display: none;">
+            <div class="filter-group">
+                <label for="user-select">Developer:</label>
+                <select id="user-select"></select>
+            </div>
+            <div class="filter-group">
+                <label for="project-select">Project:</label>
+                <select id="project-select"></select>
+            </div>
         </div>
 
         <div class="stats-grid" id="stats-overview">
@@ -461,28 +515,98 @@
                 const app = initializeApp(firebaseConfig);
                 const db = getFirestore(app);
 
-                // ── All checkpoints ──
+                // ── Fetch all checkpoints in the database ──
                 const cpQuery = query(collection(db, "checkpoints"), orderBy("timestamp", "desc"));
                 const cpSnapshot = await getDocs(cpQuery);
                 allCheckpoints = cpSnapshot.docs.map(d => d.data());
 
-                // ── Interruption stats ──
-                const statsSnapshot = await getDocs(collection(db, "interruption_stats"));
-                const stats = statsSnapshot.docs.map(d => d.data());
-
                 statusEl.innerHTML = `<span class="status-dot"></span>Connected — ${allCheckpoints.length} checkpoints loaded`;
 
-                // Set up interactive filtering
+                // Set up developer & project dropdown filters
+                setupUserProjectFilters();
+                
+                // Set up category filters
                 setupFilters();
-                updateFilterCounts(allCheckpoints);
 
-                renderStatsOverview(allCheckpoints, stats);
-                renderStatsTable(stats);
-                renderFilteredCheckpoints();
+                // Apply initial filtering (restores user/project if saved in localStorage)
+                applyAllFilters();
             } catch (err) {
                 statusEl.innerHTML = `<span class="status-dot" style="background:#ffb4ab"></span>Connection failed: ${err.message}`;
                 console.error(err);
             }
+        }
+
+        function setupUserProjectFilters() {
+            const userSelect = document.getElementById("user-select");
+            const projectSelect = document.getElementById("project-select");
+            const filterContainer = document.getElementById("user-project-filters");
+
+            if (!userSelect || !projectSelect || !filterContainer) return;
+
+            // Extract unique values from checkpoints (default to 'unknown' if not present)
+            const users = [...new Set(allCheckpoints.map(cp => cp.username || "unknown"))].sort();
+            const projects = [...new Set(allCheckpoints.map(cp => cp.project_name || "unknown"))].sort();
+
+            // Populate users dropdown
+            userSelect.innerHTML = `<option value="all">All Developers (${allCheckpoints.length})</option>` + 
+                users.map(u => {
+                    const count = allCheckpoints.filter(cp => (cp.username || "unknown") === u).length;
+                    return `<option value="${u}">${u} (${count})</option>`;
+                }).join("");
+
+            // Populate projects dropdown
+            projectSelect.innerHTML = `<option value="all">All Projects (${allCheckpoints.length})</option>` + 
+                projects.map(p => {
+                    const count = allCheckpoints.filter(cp => (cp.project_name || "unknown") === p).length;
+                    return `<option value="${p}">${p} (${count})</option>`;
+                }).join("");
+
+            // Restore previous selections from localStorage
+            const savedUser = localStorage.getItem("selected_user") || "all";
+            const savedProject = localStorage.getItem("selected_project") || "all";
+
+            if (users.includes(savedUser) || savedUser === "all") userSelect.value = savedUser;
+            if (projects.includes(savedProject) || savedProject === "all") projectSelect.value = savedProject;
+
+            filterContainer.style.display = "flex";
+
+            // Event Listeners
+            userSelect.addEventListener("change", (e) => {
+                localStorage.setItem("selected_user", e.target.value);
+                applyAllFilters();
+            });
+            projectSelect.addEventListener("change", (e) => {
+                localStorage.setItem("selected_project", e.target.value);
+                applyAllFilters();
+            });
+        }
+
+        function applyAllFilters() {
+            const userSelect = document.getElementById("user-select");
+            const projectSelect = document.getElementById("project-select");
+
+            const selectedUser = userSelect ? userSelect.value : "all";
+            const selectedProject = projectSelect ? projectSelect.value : "all";
+
+            // 1. Filter checkpoints by selected developer and project
+            const userProjectFiltered = allCheckpoints.filter(cp => {
+                const matchUser = selectedUser === "all" || (cp.username || "unknown") === selectedUser;
+                const matchProject = selectedProject === "all" || (cp.project_name || "unknown") === selectedProject;
+                return matchUser && matchProject;
+            });
+
+            // 2. Update category filter counts based on current developer/project context
+            updateFilterCounts(userProjectFiltered);
+
+            // 3. Filter further by active category tab
+            const fullyFiltered = activeCategory === "all" 
+                ? userProjectFiltered 
+                : userProjectFiltered.filter(cp => (cp.task_type || "unclear") === activeCategory);
+
+            // 4. Render UI components
+            renderStatsOverview(userProjectFiltered);
+            renderStatsTable(userProjectFiltered);
+            renderCheckpointList(fullyFiltered);
         }
 
         function updateFilterCounts(checkpoints) {
@@ -524,43 +648,88 @@
                     buttons.forEach(b => b.classList.remove("active"));
                     btn.classList.add("active");
                     activeCategory = btn.getAttribute("data-category");
-                    renderFilteredCheckpoints();
+                    applyAllFilters();
                 });
             });
         }
 
-        function renderFilteredCheckpoints() {
-            const filtered = activeCategory === "all" 
-                ? allCheckpoints 
-                : allCheckpoints.filter(cp => (cp.task_type || "unclear") === activeCategory);
-            
-            renderCheckpointList(filtered);
-        }
-
-        function renderStatsOverview(checkpoints, stats) {
+        function renderStatsOverview(checkpoints) {
             document.getElementById("stat-total").textContent = checkpoints.length;
 
-            if (stats.length > 0) {
-                const sorted = [...stats].sort((a, b) => (b.count || 0) - (a.count || 0));
-                const top = sorted[0];
-                document.getElementById("stat-most-interrupted").textContent = top.task_type || "—";
+            if (checkpoints.length === 0) {
+                document.getElementById("stat-most-interrupted").textContent = "—";
+                document.getElementById("stat-avg-time").textContent = "—";
+                document.getElementById("stat-interval").textContent = "—";
+                return;
+            }
 
-                const avgSeconds = top.count > 0 ? (top.total_elapsed_seconds || 0) / top.count : 0;
+            // Compute count and total elapsed seconds per task type from checkpoints
+            const statsMap = {};
+            checkpoints.forEach(cp => {
+                const type = cp.task_type || "unclear";
+                if (!statsMap[type]) {
+                    statsMap[type] = { count: 0, total_elapsed: 0.0 };
+                }
+                statsMap[type].count++;
+                if (cp.elapsed_seconds != null) {
+                    statsMap[type].total_elapsed += cp.elapsed_seconds;
+                }
+            });
+
+            const sorted = Object.entries(statsMap).map(([type, s]) => ({
+                task_type: type,
+                count: s.count,
+                total_elapsed_seconds: s.total_elapsed
+            })).sort((a, b) => b.count - a.count);
+
+            if (sorted.length > 0) {
+                const top = sorted[0];
+                document.getElementById("stat-most-interrupted").textContent = top.task_type;
+
+                // Find checkpoints of top type that have elapsed_seconds to average
+                const topCpWithElapsed = checkpoints.filter(cp => (cp.task_type || "unclear") === top.task_type && cp.elapsed_seconds != null);
+                const avgSeconds = topCpWithElapsed.length > 0 
+                    ? topCpWithElapsed.reduce((acc, cp) => acc + cp.elapsed_seconds, 0) / topCpWithElapsed.length 
+                    : 0;
+
                 document.getElementById("stat-avg-time").textContent = formatSeconds(avgSeconds);
                 document.getElementById("stat-interval").textContent = formatSeconds(avgSeconds / 2);
+            } else {
+                document.getElementById("stat-most-interrupted").textContent = "—";
+                document.getElementById("stat-avg-time").textContent = "—";
+                document.getElementById("stat-interval").textContent = "—";
             }
         }
 
-        function renderStatsTable(stats) {
+        function renderStatsTable(checkpoints) {
             const tbody = document.getElementById("stats-table-body");
-            if (stats.length === 0) {
+            if (checkpoints.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No statistics yet — run a few interruptions.</td></tr>`;
                 return;
             }
-            tbody.innerHTML = stats
-                .sort((a, b) => (b.count || 0) - (a.count || 0))
+
+            // Compute statistics dynamically from current filtered checkpoints
+            const statsMap = {};
+            checkpoints.forEach(cp => {
+                const type = cp.task_type || "unclear";
+                if (!statsMap[type]) {
+                    statsMap[type] = { count: 0, total_elapsed: 0.0 };
+                }
+                statsMap[type].count++;
+                if (cp.elapsed_seconds != null) {
+                    statsMap[type].total_elapsed += cp.elapsed_seconds;
+                }
+            });
+
+            const rows = Object.entries(statsMap).map(([type, s]) => ({
+                task_type: type,
+                count: s.count,
+                total_elapsed_seconds: s.total_elapsed
+            })).sort((a, b) => b.count - a.count);
+
+            tbody.innerHTML = rows
                 .map(s => {
-                    const avg = s.count > 0 ? (s.total_elapsed_seconds || 0) / s.count : 0;
+                    const avg = s.count > 0 ? s.total_elapsed_seconds / s.count : 0;
                     return `
             <tr>
               <td>${badge(s.task_type)}</td>
